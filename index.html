@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Score Settler: Snake 1v1</title>
+    <title>Tournament Snake: Pizza Settler</title>
     <style>
         :root {
             --bg-color: #0f172a;
             --card-bg: #1e293b;
             --snake-color: #22c55e;
             --food-color: #ef4444;
-            --p1-color: #22c55e;
-            --p2-color: #f59e0b;
+            --accent: #3b82f6;
+            --gold: #f59e0b;
             --text-main: #f8fafc;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
 
         body {
             background-color: var(--bg-color);
@@ -24,44 +24,70 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            overflow: hidden;
+            overflow-x: hidden;
             touch-action: none;
         }
 
-        .scoreboard {
+        /* Tournament Header */
+        .header {
             width: 100%;
             max-width: 500px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
             padding: 15px;
+            text-align: center;
         }
 
-        .player-card {
-            background: var(--card-bg);
+        .deadline-box {
+            background: rgba(255, 255, 255, 0.05);
             padding: 10px;
             border-radius: 12px;
-            text-align: center;
-            border: 3px solid transparent;
-            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .active-p1 { border-color: var(--p1-color); box-shadow: 0 0 15px rgba(34, 197, 94, 0.4); }
-        .active-p2 { border-color: var(--p2-color); box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); }
-        
-        .player-name { font-size: 0.8rem; text-transform: uppercase; opacity: 0.7; }
-        .player-score { font-size: 1.8rem; font-weight: 800; margin: 2px 0; }
-        .badge { font-size: 0.7rem; font-weight: bold; padding: 3px 6px; border-radius: 4px; display: inline-block; }
-
-        .challenge-info {
-            grid-column: span 2;
-            text-align: center;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 8px;
-            border-radius: 8px;
-            font-size: 0.85rem;
+        .stakes-banner {
+            color: #fb7185;
+            font-weight: 800;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
+        /* Leaderboard Style */
+        .leaderboard {
+            width: 90vw;
+            max-width: 400px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 10px 0;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        .leaderboard-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            opacity: 0.5;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .player-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .player-row:last-child { border-bottom: none; }
+        .player-rank { width: 25px; font-weight: bold; opacity: 0.6; }
+        .player-info { flex-grow: 1; display: flex; align-items: center; }
+        .player-score { font-weight: 800; color: var(--accent); }
+        .crown { margin-left: 5px; font-size: 1.1rem; }
+        .loser-badge { font-size: 0.7rem; background: var(--food-color); padding: 2px 5px; border-radius: 4px; margin-left: 5px; }
+
+        /* Game Container */
         #game-container {
             position: relative;
             width: 90vw;
@@ -70,94 +96,112 @@
             max-height: 400px;
             background: #020617;
             border: 4px solid #334155;
-            border-radius: 8px;
+            border-radius: 12px;
             outline: none;
+            overflow: hidden;
         }
 
         canvas { width: 100%; height: 100%; display: block; }
 
+        /* Overlays */
         .overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.95);
+            background: rgba(15, 23, 42, 0.98);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 10;
+            z-index: 100;
             padding: 20px;
             text-align: center;
         }
 
         .hidden { display: none !important; }
 
+        /* Form Elements */
         input, select, button {
             background: #334155;
             color: white;
             border: none;
             padding: 12px;
-            margin: 8px;
-            border-radius: 6px;
-            width: 80%;
+            margin: 6px;
+            border-radius: 8px;
+            width: 85%;
             font-size: 1rem;
         }
 
-        button { background: #3b82f6; font-weight: bold; cursor: pointer; }
-        button:hover { background: #2563eb; }
-        .save-btn { background: #10b981; }
+        button { background: var(--accent); font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        button.secondary { background: #475569; }
+        button.action { background: var(--snake-color); }
 
-        .instruction { font-size: 0.9rem; color: #94a3b8; margin-top: 10px; }
+        #player-list-setup {
+            width: 85%;
+            text-align: left;
+            margin: 10px 0;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .setup-name-tag {
+            background: rgba(255,255,255,0.1);
+            padding: 5px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 3px;
+            font-size: 0.8rem;
+        }
     </style>
 </head>
 <body>
 
-    <div class="scoreboard">
-        <div class="challenge-info">
-            <div id="countdown">Loading...</div>
-            <div style="color:#f472b6; font-weight:bold; margin-top:2px;">WAGER: Loser bakes brownies 🍪</div>
+    <div class="header">
+        <div class="deadline-box">
+            <div id="timer">Loading Tournament...</div>
+            <div class="stakes-banner">🍕 Last place buys pizza for everyone!</div>
         </div>
+    </div>
 
-        <div id="card-p1" class="player-card">
-            <div class="player-name" id="name-p1">P1</div>
-            <div class="player-score" id="score-p1">0</div>
-            <div id="badge-p1"></div>
+    <div class="leaderboard" id="leaderboard-ui">
+        <div class="leaderboard-title">
+            <span>Tournament Standings</span>
+            <span id="player-count">0/6 Players</span>
         </div>
-
-        <div id="card-p2" class="player-card">
-            <div class="player-name" id="name-p2">P2</div>
-            <div class="player-score" id="score-p2">0</div>
-            <div id="badge-p2"></div>
+        <div id="rows-container">
+            <!-- Rows injected here -->
         </div>
     </div>
 
     <div id="game-container" tabindex="0">
         <canvas id="gameCanvas" width="400" height="400"></canvas>
 
-        <!-- Screen 1: Name Setup -->
+        <!-- Step 1: Add Players -->
         <div id="setup-screen" class="overlay">
-            <h2 style="margin-bottom:15px">Score Settler</h2>
-            <input type="text" id="p1-input" placeholder="Player 1 Name">
-            <input type="text" id="p2-input" placeholder="Player 2 Name">
-            <button onclick="saveNames()">Save Competition</button>
+            <h2 style="margin-bottom:10px">Tournament Setup</h2>
+            <p style="font-size:0.8rem; opacity:0.7; margin-bottom:15px">Add 2 to 6 players to begin</p>
+            <div style="display:flex; width:90%">
+                <input type="text" id="name-input" placeholder="Enter Name" maxlength="12">
+                <button onclick="addPlayer()" style="width:60px">+</button>
+            </div>
+            <div id="player-list-setup"></div>
+            <button id="start-btn" class="action hidden" onclick="finalizeSetup()">Start Tournament</button>
         </div>
 
-        <!-- Screen 2: Start Game -->
-        <div id="start-screen" class="overlay hidden">
-            <h3 id="turn-label">Who is playing?</h3>
-            <select id="player-select">
-                <option value="p1">Player 1</option>
-                <option value="p2">Player 2</option>
-            </select>
-            <button onclick="startGame()">Start Game</button>
-            <p class="instruction">Press an Arrow Key or Swipe to move</p>
+        <!-- Step 2: Lobby/Select Player -->
+        <div id="lobby-screen" class="overlay hidden">
+            <h3>Next Up:</h3>
+            <select id="active-player-select"></select>
+            <button class="action" onclick="prepareGame()">Ready to Play</button>
+            <p style="margin-top:15px; font-size:0.8rem; opacity:0.5">Snake moves when you press a key</p>
         </div>
 
-        <!-- Screen 3: Game Over -->
+        <!-- Step 3: Game Over -->
         <div id="game-over-screen" class="overlay hidden">
             <h1 id="final-score" style="font-size: 4rem;">0</h1>
-            <p id="game-over-msg" style="margin-bottom: 20px;">Game Over!</p>
-            <button class="save-btn" id="save-btn" onclick="saveScore()">Save to Scoreboard</button>
-            <button onclick="resetUI()" style="background:#475569">Main Menu</button>
+            <p id="player-finished-msg">Nice run!</p>
+            <button class="action" onclick="saveTournamentScore()">Update Leaderboard</button>
+            <button class="secondary" onclick="showLobby()">Back to Lobby</button>
         </div>
     </div>
 
@@ -166,57 +210,95 @@
         const ctx = canvas.getContext('2d');
         const gridSize = 20;
         const tileCount = 20;
-
         const DEADLINE = new Date("December 31, 2025 23:59:59").getTime();
-        
+
+        // State
+        let players = []; // Array of { name, score }
+        let currentPlayerIdx = null;
         let snake = [];
         let food = {x: 5, y: 5};
-        let dx = 0; let dy = 0;
-        let nextDx = 0; let nextDy = 0;
+        let dx = 0, dy = 0, nextDx = 0, nextDy = 0;
         let score = 0;
         let gameLoop = null;
         let isMoving = false;
-        let currentPlayer = 'p1';
-
-        let names = { p1: "Player 1", p2: "Player 2" };
-        let highScores = { p1: 0, p2: 0 };
 
         function init() {
-            const savedNames = localStorage.getItem('ss_names');
-            if(savedNames) {
-                names = JSON.parse(savedNames);
+            const saved = localStorage.getItem('snk_tournament_players');
+            if (saved) {
+                players = JSON.parse(saved);
                 document.getElementById('setup-screen').classList.add('hidden');
-                document.getElementById('start-screen').classList.remove('hidden');
-                updateNamesUI();
+                document.getElementById('lobby-screen').classList.remove('hidden');
+                refreshUI();
             }
-            highScores.p1 = parseInt(localStorage.getItem('ss_score_p1')) || 0;
-            highScores.p2 = parseInt(localStorage.getItem('ss_score_p2')) || 0;
-            refreshScoreboard();
             startCountdown();
         }
 
-        function saveNames() {
-            names.p1 = document.getElementById('p1-input').value || "Player 1";
-            names.p2 = document.getElementById('p2-input').value || "Player 2";
-            localStorage.setItem('ss_names', JSON.stringify(names));
-            updateNamesUI();
+        // Setup Logic
+        function addPlayer() {
+            const input = document.getElementById('name-input');
+            const name = input.value.trim();
+            if (name && players.length < 6) {
+                if (players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
+                    alert("Name already taken!");
+                    return;
+                }
+                players.push({ name: name, score: 0 });
+                input.value = '';
+                renderSetupList();
+            }
+            if (players.length >= 2) document.getElementById('start-btn').classList.remove('hidden');
+        }
+
+        function renderSetupList() {
+            const container = document.getElementById('player-list-setup');
+            container.innerHTML = players.map(p => `<span class="setup-name-tag">${p.name}</span>`).join('');
+            document.getElementById('player-count').innerText = `${players.length}/6 Players`;
+        }
+
+        function finalizeSetup() {
+            localStorage.setItem('snk_tournament_players', JSON.stringify(players));
             document.getElementById('setup-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            refreshUI();
         }
 
-        function updateNamesUI() {
-            document.getElementById('name-p1').innerText = names.p1;
-            document.getElementById('name-p2').innerText = names.p2;
-            document.getElementById('player-select').options[0].text = names.p1;
-            document.getElementById('player-select').options[1].text = names.p2;
-        }
-
-        function startGame() {
-            currentPlayer = document.getElementById('player-select').value;
-            document.getElementById('start-screen').classList.add('hidden');
-            document.getElementById('game-container').focus(); // Ensure keyboard focus
+        // UI Updates
+        function refreshUI() {
+            const rows = document.getElementById('rows-container');
+            const select = document.getElementById('active-player-select');
             
-            // Reset Game State
+            // Sort players by score
+            const sorted = [...players].sort((a, b) => b.score - a.score);
+            const highscore = Math.max(...players.map(p => p.score));
+            const lowscore = Math.min(...players.map(p => p.score));
+            const isFinished = new Date().getTime() > DEADLINE;
+
+            rows.innerHTML = sorted.map((p, i) => {
+                const isLeader = p.score === highscore && p.score > 0;
+                const isLoser = isFinished && p.score === lowscore && players.length > 1;
+                return `
+                    <div class="player-row">
+                        <div class="player-rank">#${i + 1}</div>
+                        <div class="player-info">
+                            ${p.name} 
+                            ${isLeader ? '<span class="crown">👑</span>' : ''}
+                            ${isLoser ? '<span class="loser-badge">PAY UP 🍕</span>' : ''}
+                        </div>
+                        <div class="player-score">${p.score}</div>
+                    </div>
+                `;
+            }).join('');
+
+            select.innerHTML = players.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
+            document.getElementById('player-count').innerText = `${players.length}/6 Players`;
+        }
+
+        // Game Logic
+        function prepareGame() {
+            currentPlayerIdx = document.getElementById('active-player-select').value;
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('game-container').focus();
+            
             snake = [{x: 10, y: 10}];
             generateFood();
             dx = 0; dy = 0; nextDx = 0; nextDy = 0;
@@ -225,141 +307,89 @@
 
             if(gameLoop) clearInterval(gameLoop);
             gameLoop = setInterval(gameTick, 100);
-            draw(); // Draw first frame immediately
-        }
-
-        function generateFood() {
-            food = {
-                x: Math.floor(Math.random() * tileCount),
-                y: Math.floor(Math.random() * tileCount)
-            };
-            if(snake.some(p => p.x === food.x && p.y === food.y)) generateFood();
+            draw();
         }
 
         function gameTick() {
             if (isMoving) {
-                update();
+                dx = nextDx; dy = nextDy;
+                const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+                if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount || 
+                    snake.some(p => p.x === head.x && p.y === head.y)) {
+                    return endMatch();
+                }
+
+                snake.unshift(head);
+                if (head.x === food.x && head.y === food.y) {
+                    score += 10;
+                    generateFood();
+                } else {
+                    snake.pop();
+                }
             }
             draw();
         }
 
-        function update() {
-            dx = nextDx;
-            dy = nextDy;
-
-            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
-
-            // Wall Collision
-            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) return gameOver();
-            // Self Collision
-            if (snake.some(part => part.x === head.x && part.y === head.y)) return gameOver();
-
-            snake.unshift(head);
-
-            if (head.x === food.x && head.y === food.y) {
-                score += 10;
-                generateFood();
-            } else {
-                snake.pop();
-            }
-        }
-
         function draw() {
-            // Background
             ctx.fillStyle = '#020617';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Food
             ctx.fillStyle = '#ef4444';
-            ctx.shadowBlur = 8; ctx.shadowColor = '#ef4444';
             ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
-            ctx.shadowBlur = 0;
 
-            // Snake
-            snake.forEach((part, i) => {
+            snake.forEach((p, i) => {
                 ctx.fillStyle = i === 0 ? '#4ade80' : '#22c55e';
-                ctx.fillRect(part.x * gridSize + 1, part.y * gridSize + 1, gridSize - 2, gridSize - 2);
+                ctx.fillRect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2);
             });
 
-            // Prompt to move if stationary
-            if (!isMoving && snake.length > 0) {
+            if (!isMoving) {
                 ctx.fillStyle = "white";
-                ctx.font = "16px Arial";
                 ctx.textAlign = "center";
-                ctx.fillText("Press an Arrow to Start", canvas.width/2, canvas.height/2 + 40);
+                ctx.fillText("Press Arrow to Move", 200, 240);
             }
         }
 
-        function gameOver() {
+        function endMatch() {
             clearInterval(gameLoop);
             document.getElementById('game-over-screen').classList.remove('hidden');
             document.getElementById('final-score').innerText = score;
-            document.getElementById('save-btn').classList.remove('hidden');
+            document.getElementById('player-finished-msg').innerText = `${players[currentPlayerIdx].name}'s score`;
         }
 
-        function saveScore() {
-            if(score > highScores[currentPlayer]) {
-                highScores[currentPlayer] = score;
-                localStorage.setItem(`ss_score_${currentPlayer}`, score);
-                refreshScoreboard();
+        function saveTournamentScore() {
+            if (score > players[currentPlayerIdx].score) {
+                players[currentPlayerIdx].score = score;
+                localStorage.setItem('snk_tournament_players', JSON.stringify(players));
             }
-            document.getElementById('save-btn').classList.add('hidden');
-            document.getElementById('game-over-msg').innerText = "Score Saved!";
+            showLobby();
         }
 
-        function resetUI() {
+        function showLobby() {
             document.getElementById('game-over-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-            document.getElementById('game-over-msg').innerText = "Game Over!";
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            refreshUI();
         }
 
-        function refreshScoreboard() {
-            document.getElementById('score-p1').innerText = highScores.p1;
-            document.getElementById('score-p2').innerText = highScores.p2;
-
-            const now = new Date().getTime();
-            const finished = now > DEADLINE;
-
-            const c1 = document.getElementById('card-p1');
-            const c2 = document.getElementById('card-p2');
-            const b1 = document.getElementById('badge-p1');
-            const b2 = document.getElementById('badge-p2');
-
-            c1.className = 'player-card'; c2.className = 'player-card';
-            b1.innerHTML = ''; b2.innerHTML = '';
-
-            if(finished) {
-                if(highScores.p1 > highScores.p2) {
-                    b1.innerHTML = '<span class="badge" style="background:#10b981">🏆 WINNER</span>';
-                    b2.innerHTML = '<span class="badge" style="background:#ef4444">😔 LOSER</span>';
-                } else if (highScores.p2 > highScores.p1) {
-                    b2.innerHTML = '<span class="badge" style="background:#f59e0b">🏆 WINNER</span>';
-                    b1.innerHTML = '<span class="badge" style="background:#ef4444">😔 LOSER</span>';
-                }
-            } else {
-                if(highScores.p1 > highScores.p2 && highScores.p1 > 0) c1.classList.add('active-p1');
-                if(highScores.p2 > highScores.p1 && highScores.p2 > 0) c2.classList.add('active-p2');
-            }
+        function generateFood() {
+            food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
+            if (snake.some(p => p.x === food.x && p.y === food.y)) generateFood();
         }
 
         function startCountdown() {
-            const timer = document.getElementById('countdown');
-            function updateTimer() {
-                const now = new Date().getTime();
-                const diff = DEADLINE - now;
-                if(diff <= 0) { timer.innerText = "CHALLENGE ENDED"; return; }
-                const d = Math.floor(diff / (1000*60*60*24));
-                const h = Math.floor((diff % (1000*60*60*24)) / (1000*60*60));
-                const m = Math.floor((diff % (1000*60*60)) / (1000*60));
-                timer.innerText = `Ends in: ${d}d ${h}h ${m}m`;
+            const timer = document.getElementById('timer');
+            function update() {
+                const diff = DEADLINE - new Date().getTime();
+                if (diff <= 0) { timer.innerText = "TOURNAMENT CLOSED"; refreshUI(); return; }
+                const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000);
+                timer.innerText = `Tournament Ends: ${d}d ${h}h ${m}m`;
             }
-            updateTimer();
-            setInterval(updateTimer, 60000);
+            update(); setInterval(update, 60000);
         }
 
-        // CONTROL LOGIC
-        function handleInput(key) {
-            switch(key) {
+        // Controls
+        function handleInput(k) {
+            switch(k) {
                 case 'ArrowUp': if(dy !== 1) { nextDx = 0; nextDy = -1; isMoving = true; } break;
                 case 'ArrowDown': if(dy !== -1) { nextDx = 0; nextDy = 1; isMoving = true; } break;
                 case 'ArrowLeft': if(dx !== 1) { nextDx = -1; nextDy = 0; isMoving = true; } break;
@@ -372,17 +402,12 @@
             handleInput(e.key);
         });
 
-        // Swipe Support
-        let tsX = 0; let tsY = 0;
-        document.addEventListener('touchstart', e => { tsX = e.touches[0].clientX; tsY = e.touches[0].clientY; }, false);
-        document.addEventListener('touchend', e => {
-            const dxT = e.changedTouches[0].clientX - tsX;
-            const dyT = e.changedTouches[0].clientY - tsY;
-            if(Math.abs(dxT) > Math.abs(dyT)) {
-                handleInput(dxT > 0 ? 'ArrowRight' : 'ArrowLeft');
-            } else {
-                handleInput(dyT > 0 ? 'ArrowDown' : 'ArrowUp');
-            }
+        let tsX = 0, tsY = 0;
+        canvas.addEventListener('touchstart', e => { tsX = e.touches[0].clientX; tsY = e.touches[0].clientY; }, false);
+        canvas.addEventListener('touchend', e => {
+            const dxT = e.changedTouches[0].clientX - tsX, dyT = e.changedTouches[0].clientY - tsY;
+            if (Math.abs(dxT) > Math.abs(dyT)) handleInput(dxT > 0 ? 'ArrowRight' : 'ArrowLeft');
+            else handleInput(dyT > 0 ? 'ArrowDown' : 'ArrowUp');
         }, false);
 
         init();

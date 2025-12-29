@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Score Settler: Snake 1v1</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --snake-color: #22c55e;
+            --food-color: #ef4444;
+            --p1-color: #22c55e;
+            --p2-color: #f59e0b;
+            --text-main: #f8fafc;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none; /* Prevents scrolling while playing */
+        }
+
+        /* Scoreboard Styles */
+        .scoreboard {
+            width: 100%;
+            max-width: 600px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .player-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .player-card.active-p1 { border-color: var(--p1-color); box-shadow: 0 0 15px rgba(34, 197, 94, 0.3); }
+        .player-card.active-p2 { border-color: var(--p2-color); box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); }
+        
+        .player-name { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
+        .player-score { font-size: 2rem; font-weight: 800; margin: 5px 0; }
+        .badge { font-size: 0.7rem; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+
+        .challenge-info {
+            grid-column: span 2;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+
+        .deadline-timer { color: #94a3b8; font-size: 0.85rem; }
+        .stakes { color: #f472b6; font-weight: bold; font-size: 0.9rem; margin-top: 4px; }
+
+        /* Game Area */
+        #game-container {
+            position: relative;
+            width: 90vw;
+            max-width: 400px;
+            height: 90vw;
+            max-height: 400px;
+            background: #020617;
+            border: 4px solid #334155;
+            border-radius: 8px;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        /* UI Overlays */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .hidden { display: none !important; }
+
+        select, input, button {
+            background: #334155;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin: 10px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        button { background: #3b82f6; font-weight: bold; width: 200px; }
+        button:hover { background: #2563eb; }
+        button.save-btn { background: var(--p1-color); }
+
+        .win-text { color: var(--p1-color); animation: pulse 1s infinite; }
+        .lose-text { color: var(--food-color); }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @media (max-width: 400px) {
+            .player-score { font-size: 1.5rem; }
+            .scoreboard { padding: 5px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scoreboard">
+        <div class="challenge-info">
+            <div class="deadline-timer" id="countdown">Loading Timer...</div>
+            <div class="stakes">STAKES: Loser bakes brownies 🍪</div>
+        </div>
+
+        <div id="card-p1" class="player-card">
+            <div class="player-name" id="name-display-p1">P1</div>
+            <div class="player-score" id="score-p1">0</div>
+            <div id="badge-p1"></div>
+        </div>
+
+        <div id="card-p2" class="player-card">
+            <div class="player-name" id="name-display-p2">P2</div>
+            <div class="player-score" id="score-p2">0</div>
+            <div id="badge-p2"></div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+        <!-- Setup Screen -->
+        <div id="setup-screen" class="overlay">
+            <h2>Snake Score Settler</h2>
+            <p style="margin: 10px 0; font-size: 0.8rem; opacity: 0.7;">Set names once, then play to settle it.</p>
+            <input type="text" id="p1-name-input" placeholder="Player 1 Name">
+            <input type="text" id="p2-name-input" placeholder="Player 2 Name">
+            <button onclick="saveNames()">Lock Names & Start</button>
+        </div>
+
+        <!-- Start/Select Screen -->
+        <div id="start-screen" class="overlay hidden">
+            <h3 id="current-turn-label">Who is playing now?</h3>
+            <select id="player-select">
+                <option value="p1">Player 1</option>
+                <option value="p2">Player 2</option>
+            </select>
+            <button onclick="startGame()">Start Game</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="overlay hidden">
+            <h1 id="final-score-display">0</h1>
+            <p id="game-over-msg">Game Over!</p>
+            <button class="save-btn" id="save-score-btn" onclick="saveScore()">Save Score</button>
+            <button onclick="resetUI()">Main Menu</button>
+        </div>
+    </div>
+
+    <div style="margin-top: 20px; opacity: 0.5; font-size: 0.8rem;">
+        Use Arrows or Swipe to Move
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 20;
+        const tileCount = 20;
+
+        // Challenge Configuration
+        const DEADLINE = new Date("December 31, 2025 23:59:59").getTime();
+        
+        // Game State
+        let snake = [{x: 10, y: 10}];
+        let food = {x: 5, y: 5};
+        let dx = 0;
+        let dy = 0;
+        let nextDx = 0;
+        let nextDy = 0;
+        let score = 0;
+        let gameLoop;
+        let currentPlayer = 'p1';
+        let isGameOver = false;
+
+        // Names and Local Storage
+        let names = { p1: "Player 1", p2: "Player 2" };
+        let highScores = { p1: 0, p2: 0 };
+
+        function init() {
+            // Load names
+            const savedNames = localStorage.getItem('ss_names');
+            if(savedNames) {
+                names = JSON.parse(savedNames);
+                document.getElementById('setup-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+                updateNameDisplays();
+            }
+
+            // Load scores
+            highScores.p1 = localStorage.getItem('ss_score_p1') || 0;
+            highScores.p2 = localStorage.getItem('ss_score_p2') || 0;
+            refreshScoreboard();
+            startCountdown();
+        }
+
+        function saveNames() {
+            const p1n = document.getElementById('p1-name-input').value || "Player 1";
+            const p2n = document.getElementById('p2-name-input').value || "Player 2";
+            names = { p1: p1n, p2: p2n };
+            localStorage.setItem('ss_names', JSON.stringify(names));
+            updateNameDisplays();
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+        }
+
+        function updateNameDisplays() {
+            document.getElementById('name-display-p1').innerText = names.p1;
+            document.getElementById('name-display-p2').innerText = names.p2;
+            document.getElementById('player-select').options[0].text = names.p1;
+            document.getElementById('player-select').options[1].text = names.p2;
+        }
+
+        function startGame() {
+            currentPlayer = document.getElementById('player-select').value;
+            document.getElementById('start-screen').classList.add('hidden');
+            resetGameState();
+            gameLoop = setInterval(draw, 100);
+        }
+
+        function resetGameState() {
+            snake = [{x: 10, y: 10}];
+            generateFood();
+            dx = 0; dy = 0; nextDx = 0; nextDy = 0;
+            score = 0;
+            isGameOver = false;
+        }
+
+        function generateFood() {
+            food = {
+                x: Math.floor(Math.random() * tileCount),
+                y: Math.floor(Math.random() * tileCount)
+            };
+            // Don't spawn food on snake
+            snake.forEach(part => {
+                if(part.x === food.x && part.y === food.y) generateFood();
+            });
+        }
+
+        function draw() {
+            update();
+            if(isGameOver) return;
+
+            // Clear Canvas
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Food
+            ctx.fillStyle = '#ef4444';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ef4444';
+            ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
+            ctx.shadowBlur = 0;
+
+            // Draw Snake
+            snake.forEach((part, index) => {
+                ctx.fillStyle = index === 0 ? '#4ade80' : '#22c55e';
+                ctx.fillRect(part.x * gridSize + 1, part.y * gridSize + 1, gridSize - 2, gridSize - 2);
+            });
+        }
+
+        function update() {
+            if(dx === 0 && dy === 0) return; // Wait for first move
+
+            dx = nextDx;
+            dy = nextDy;
+
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+            // Wall Collision
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+                return gameOver();
+            }
+
+            // Self Collision
+            for(let i = 0; i < snake.length; i++) {
+                if(snake[i].x === head.x && snake[i].y === head.y) return gameOver();
+            }
+
+            snake.unshift(head);
+
+            // Eat Food
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                generateFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function gameOver() {
+            isGameOver = true;
+            clearInterval(gameLoop);
+            document.getElementById('game-over-screen').classList.remove('hidden');
+            document.getElementById('final-score-display').innerText = score;
+            document.getElementById('save-score-btn').classList.remove('hidden');
+        }
+
+        function saveScore() {
+            const currentBest = parseInt(highScores[currentPlayer]);
+            if(score > currentBest) {
+                highScores[currentPlayer] = score;
+                localStorage.setItem(`ss_score_${currentPlayer}`, score);
+                refreshScoreboard();
+            }
+            document.getElementById('save-score-btn').classList.add('hidden');
+            document.getElementById('game-over-msg').innerText = "Score Saved!";
+        }
+
+        function resetUI() {
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            document.getElementById('game-over-msg').innerText = "Game Over!";
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function refreshScoreboard() {
+            const s1 = parseInt(highScores.p1);
+            const s2 = parseInt(highScores.p2);
+            document.getElementById('score-p1').innerText = s1;
+            document.getElementById('score-p2').innerText = s2;
+
+            const now = new Date().getTime();
+            const finished = now > DEADLINE;
+
+            // Highlight Leader or Winner
+            const card1 = document.getElementById('card-p1');
+            const card2 = document.getElementById('card-p2');
+            const badge1 = document.getElementById('badge-p1');
+            const badge2 = document.getElementById('badge-p2');
+
+            card1.className = 'player-card';
+            card2.className = 'player-card';
+            badge1.innerHTML = '';
+            badge2.innerHTML = '';
+
+            if (finished) {
+                if (s1 > s2) {
+                    badge1.innerHTML = '<span class="badge" style="background:var(--p1-color)">🏆 WINNER</span>';
+                    badge2.innerHTML = '<span class="badge" style="background:var(--food-color)">😔 LOSER - Pay Up!</span>';
+                } else if (s2 > s1) {
+                    badge2.innerHTML = '<span class="badge" style="background:var(--p2-color)">🏆 WINNER</span>';
+                    badge1.innerHTML = '<span class="badge" style="background:var(--food-color)">😔 LOSER - Pay Up!</span>';
+                } else {
+                    badge1.innerHTML = badge2.innerHTML = '<span class="badge">🤝 DRAW</span>';
+                }
+            } else {
+                if (s1 > s2 && s1 > 0) card1.classList.add('active-p1');
+                else if (s2 > s1 && s2 > 0) card2.classList.add('active-p2');
+            }
+        }
+
+        // Timer Logic
+        function startCountdown() {
+            const timerDisplay = document.getElementById('countdown');
+            
+            function updateTimer() {
+                const now = new Date().getTime();
+                const diff = DEADLINE - now;
+
+                if (diff <= 0) {
+                    timerDisplay.innerText = "CHALLENGE ENDED";
+                    refreshScoreboard();
+                    return;
+                }
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                
+                timerDisplay.innerText = `Ends in: ${days}d ${hours}h ${mins}m`;
+            }
+
+            updateTimer();
+            setInterval(updateTimer, 60000);
+        }
+
+        // Controls
+        window.addEventListener('keydown', e => {
+            switch(e.key) {
+                case 'ArrowUp': if(dy !== 1) { nextDx = 0; nextDy = -1; } break;
+                case 'ArrowDown': if(dy !== -1) { nextDx = 0; nextDy = 1; } break;
+                case 'ArrowLeft': if(dx !== 1) { nextDx = -1; nextDy = 0; } break;
+                case 'ArrowRight': if(dx !== -1) { nextDx = 1; nextDy = 0; } break;
+            }
+        });
+
+        // Swipe Support
+        let touchStartX = 0;
+        let touchStartY = 0;
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, false);
+
+        document.addEventListener('touchend', e => {
+            let x = e.changedTouches[0].screenX;
+            let y = e.changedTouches[0].screenY;
+            
+            let xDiff = x - touchStartX;
+            let yDiff = y - touchStartY;
+
+            if (Math.abs(xDiff) > Math.abs(yDiff)) {
+                if (xDiff > 0 && dx !== -1) { nextDx = 1; nextDy = 0; }
+                else if (xDiff < 0 && dx !== 1) { nextDx = -1; nextDy = 0; }
+            } else {
+                if (yDiff > 0 && dy !== -1) { nextDx = 0; nextDy = 1; }
+                else if (yDiff < 0 && dy !== 1) { nextDx = 0; nextDy = -1; }
+            }
+        }, false);
+
+        init();
+    </script>
+</body>
+</html>

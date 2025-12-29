@@ -28,7 +28,6 @@
             touch-action: none;
         }
 
-        /* Tournament Header */
         .header {
             width: 100%;
             max-width: 500px;
@@ -52,7 +51,6 @@
             letter-spacing: 1px;
         }
 
-        /* Leaderboard Style */
         .leaderboard {
             width: 90vw;
             max-width: 400px;
@@ -80,14 +78,9 @@
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
-        .player-row:last-child { border-bottom: none; }
-        .player-rank { width: 25px; font-weight: bold; opacity: 0.6; }
-        .player-info { flex-grow: 1; display: flex; align-items: center; }
         .player-score { font-weight: 800; color: var(--accent); }
         .crown { margin-left: 5px; font-size: 1.1rem; }
-        .loser-badge { font-size: 0.7rem; background: var(--food-color); padding: 2px 5px; border-radius: 4px; margin-left: 5px; }
 
-        /* Game Container */
         #game-container {
             position: relative;
             width: 90vw;
@@ -103,7 +96,19 @@
 
         canvas { width: 100%; height: 100%; display: block; }
 
-        /* Overlays */
+        /* Real-time HUD */
+        #live-hud {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 3rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.2);
+            pointer-events: none;
+            z-index: 5;
+        }
+
         .overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -119,7 +124,6 @@
 
         .hidden { display: none !important; }
 
-        /* Form Elements */
         input, select, button {
             background: #334155;
             color: white;
@@ -131,16 +135,14 @@
             font-size: 1rem;
         }
 
-        button { background: var(--accent); font-weight: bold; cursor: pointer; transition: transform 0.1s; }
-        button:active { transform: scale(0.98); }
-        button.secondary { background: #475569; }
+        button { background: var(--accent); font-weight: bold; cursor: pointer; }
         button.action { background: var(--snake-color); }
 
         #player-list-setup {
             width: 85%;
             text-align: left;
             margin: 10px 0;
-            max-height: 150px;
+            max-height: 100px;
             overflow-y: auto;
         }
 
@@ -158,50 +160,46 @@
 
     <div class="header">
         <div class="deadline-box">
-            <div id="timer">Loading Tournament...</div>
+            <div id="timer">Loading...</div>
             <div class="stakes-banner">🍕 Last place buys pizza for everyone!</div>
         </div>
     </div>
 
-    <div class="leaderboard" id="leaderboard-ui">
+    <div class="leaderboard">
         <div class="leaderboard-title">
-            <span>Tournament Standings</span>
+            <span>Standings</span>
             <span id="player-count">0/6 Players</span>
         </div>
-        <div id="rows-container">
-            <!-- Rows injected here -->
-        </div>
+        <div id="rows-container"></div>
     </div>
 
     <div id="game-container" tabindex="0">
+        <div id="live-hud" class="hidden">0</div>
         <canvas id="gameCanvas" width="400" height="400"></canvas>
 
-        <!-- Step 1: Add Players -->
+        <!-- Step 1: Setup -->
         <div id="setup-screen" class="overlay">
-            <h2 style="margin-bottom:10px">Tournament Setup</h2>
-            <p style="font-size:0.8rem; opacity:0.7; margin-bottom:15px">Add 2 to 6 players to begin</p>
+            <h2>Tournament Setup</h2>
             <div style="display:flex; width:90%">
-                <input type="text" id="name-input" placeholder="Enter Name" maxlength="12">
+                <input type="text" id="name-input" placeholder="Name" maxlength="12">
                 <button onclick="addPlayer()" style="width:60px">+</button>
             </div>
             <div id="player-list-setup"></div>
-            <button id="start-btn" class="action hidden" onclick="finalizeSetup()">Start Tournament</button>
+            <button id="start-btn" class="action hidden" onclick="finalizeSetup()">Finalize Players</button>
         </div>
 
-        <!-- Step 2: Lobby/Select Player -->
+        <!-- Step 2: Lobby -->
         <div id="lobby-screen" class="overlay hidden">
-            <h3>Next Up:</h3>
+            <h3 id="lobby-msg">Select your name to play:</h3>
             <select id="active-player-select"></select>
-            <button class="action" onclick="prepareGame()">Ready to Play</button>
-            <p style="margin-top:15px; font-size:0.8rem; opacity:0.5">Snake moves when you press a key</p>
+            <button class="action" onclick="prepareGame()">Start My Turn</button>
         </div>
 
         <!-- Step 3: Game Over -->
         <div id="game-over-screen" class="overlay hidden">
+            <h2 id="match-player-name">Player</h2>
             <h1 id="final-score" style="font-size: 4rem;">0</h1>
-            <p id="player-finished-msg">Nice run!</p>
-            <button class="action" onclick="saveTournamentScore()">Update Leaderboard</button>
-            <button class="secondary" onclick="showLobby()">Back to Lobby</button>
+            <button class="action" onclick="saveTournamentScore()">Save Result</button>
         </div>
     </div>
 
@@ -212,8 +210,7 @@
         const tileCount = 20;
         const DEADLINE = new Date("December 31, 2025 23:59:59").getTime();
 
-        // State
-        let players = []; // Array of { name, score }
+        let players = []; 
         let currentPlayerIdx = null;
         let snake = [];
         let food = {x: 5, y: 5};
@@ -223,7 +220,7 @@
         let isMoving = false;
 
         function init() {
-            const saved = localStorage.getItem('snk_tournament_players');
+            const saved = localStorage.getItem('snk_tourney_v2');
             if (saved) {
                 players = JSON.parse(saved);
                 document.getElementById('setup-screen').classList.add('hidden');
@@ -233,15 +230,10 @@
             startCountdown();
         }
 
-        // Setup Logic
         function addPlayer() {
             const input = document.getElementById('name-input');
             const name = input.value.trim();
             if (name && players.length < 6) {
-                if (players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
-                    alert("Name already taken!");
-                    return;
-                }
                 players.push({ name: name, score: 0 });
                 input.value = '';
                 renderSetupList();
@@ -252,51 +244,38 @@
         function renderSetupList() {
             const container = document.getElementById('player-list-setup');
             container.innerHTML = players.map(p => `<span class="setup-name-tag">${p.name}</span>`).join('');
-            document.getElementById('player-count').innerText = `${players.length}/6 Players`;
         }
 
         function finalizeSetup() {
-            localStorage.setItem('snk_tournament_players', JSON.stringify(players));
+            localStorage.setItem('snk_tourney_v2', JSON.stringify(players));
             document.getElementById('setup-screen').classList.add('hidden');
             document.getElementById('lobby-screen').classList.remove('hidden');
             refreshUI();
         }
 
-        // UI Updates
         function refreshUI() {
             const rows = document.getElementById('rows-container');
             const select = document.getElementById('active-player-select');
             
-            // Sort players by score
             const sorted = [...players].sort((a, b) => b.score - a.score);
             const highscore = Math.max(...players.map(p => p.score));
-            const lowscore = Math.min(...players.map(p => p.score));
-            const isFinished = new Date().getTime() > DEADLINE;
 
-            rows.innerHTML = sorted.map((p, i) => {
-                const isLeader = p.score === highscore && p.score > 0;
-                const isLoser = isFinished && p.score === lowscore && players.length > 1;
-                return `
-                    <div class="player-row">
-                        <div class="player-rank">#${i + 1}</div>
-                        <div class="player-info">
-                            ${p.name} 
-                            ${isLeader ? '<span class="crown">👑</span>' : ''}
-                            ${isLoser ? '<span class="loser-badge">PAY UP 🍕</span>' : ''}
-                        </div>
-                        <div class="player-score">${p.score}</div>
-                    </div>
-                `;
-            }).join('');
+            rows.innerHTML = sorted.map((p, i) => `
+                <div class="player-row">
+                    <div>#${i + 1} ${p.name} ${p.score === highscore && p.score > 0 ? '👑' : ''}</div>
+                    <div class="player-score">${p.score}</div>
+                </div>
+            `).join('');
 
             select.innerHTML = players.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
             document.getElementById('player-count').innerText = `${players.length}/6 Players`;
         }
 
-        // Game Logic
         function prepareGame() {
-            currentPlayerIdx = document.getElementById('active-player-select').value;
+            // Fix: Ensure we capture the numeric index correctly
+            currentPlayerIdx = parseInt(document.getElementById('active-player-select').value);
             document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('live-hud').classList.remove('hidden');
             document.getElementById('game-container').focus();
             
             snake = [{x: 10, y: 10}];
@@ -304,25 +283,36 @@
             dx = 0; dy = 0; nextDx = 0; nextDy = 0;
             score = 0;
             isMoving = false;
+            updateHud();
 
             if(gameLoop) clearInterval(gameLoop);
             gameLoop = setInterval(gameTick, 100);
-            draw();
+        }
+
+        function updateHud() {
+            document.getElementById('live-hud').innerText = score;
         }
 
         function gameTick() {
             if (isMoving) {
                 dx = nextDx; dy = nextDy;
-                const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+                let head = { x: snake[0].x + dx, y: snake[0].y + dy };
 
-                if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount || 
-                    snake.some(p => p.x === head.x && p.y === head.y)) {
+                // WALL WRAP LOGIC
+                if (head.x < 0) head.x = tileCount - 1;
+                if (head.x >= tileCount) head.x = 0;
+                if (head.y < 0) head.y = tileCount - 1;
+                if (head.y >= tileCount) head.y = 0;
+
+                // SELF COLLISION ONLY
+                if (snake.some(p => p.x === head.x && p.y === head.y)) {
                     return endMatch();
                 }
 
                 snake.unshift(head);
                 if (head.x === food.x && head.y === food.y) {
                     score += 10;
+                    updateHud();
                     generateFood();
                 } else {
                     snake.pop();
@@ -334,38 +324,28 @@
         function draw() {
             ctx.fillStyle = '#020617';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
             ctx.fillStyle = '#ef4444';
             ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
-
             snake.forEach((p, i) => {
                 ctx.fillStyle = i === 0 ? '#4ade80' : '#22c55e';
                 ctx.fillRect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize - 2, gridSize - 2);
             });
-
-            if (!isMoving) {
-                ctx.fillStyle = "white";
-                ctx.textAlign = "center";
-                ctx.fillText("Press Arrow to Move", 200, 240);
-            }
         }
 
         function endMatch() {
             clearInterval(gameLoop);
+            document.getElementById('live-hud').classList.add('hidden');
             document.getElementById('game-over-screen').classList.remove('hidden');
+            document.getElementById('match-player-name').innerText = players[currentPlayerIdx].name;
             document.getElementById('final-score').innerText = score;
-            document.getElementById('player-finished-msg').innerText = `${players[currentPlayerIdx].name}'s score`;
         }
 
         function saveTournamentScore() {
+            // Update score only if it's a new personal best for this tournament session
             if (score > players[currentPlayerIdx].score) {
                 players[currentPlayerIdx].score = score;
-                localStorage.setItem('snk_tournament_players', JSON.stringify(players));
+                localStorage.setItem('snk_tourney_v2', JSON.stringify(players));
             }
-            showLobby();
-        }
-
-        function showLobby() {
             document.getElementById('game-over-screen').classList.add('hidden');
             document.getElementById('lobby-screen').classList.remove('hidden');
             refreshUI();
@@ -380,14 +360,13 @@
             const timer = document.getElementById('timer');
             function update() {
                 const diff = DEADLINE - new Date().getTime();
-                if (diff <= 0) { timer.innerText = "TOURNAMENT CLOSED"; refreshUI(); return; }
+                if (diff <= 0) { timer.innerText = "CHALLENGE ENDED"; return; }
                 const d = Math.floor(diff / 86400000), h = Math.floor((diff % 86400000) / 3600000), m = Math.floor((diff % 3600000) / 60000);
-                timer.innerText = `Tournament Ends: ${d}d ${h}h ${m}m`;
+                timer.innerText = `Ends in: ${d}d ${h}h ${m}m`;
             }
             update(); setInterval(update, 60000);
         }
 
-        // Controls
         function handleInput(k) {
             switch(k) {
                 case 'ArrowUp': if(dy !== 1) { nextDx = 0; nextDy = -1; isMoving = true; } break;
@@ -403,12 +382,12 @@
         });
 
         let tsX = 0, tsY = 0;
-        canvas.addEventListener('touchstart', e => { tsX = e.touches[0].clientX; tsY = e.touches[0].clientY; }, false);
+        canvas.addEventListener('touchstart', e => { tsX = e.touches[0].clientX; tsY = e.touches[0].clientY; }, {passive: false});
         canvas.addEventListener('touchend', e => {
             const dxT = e.changedTouches[0].clientX - tsX, dyT = e.changedTouches[0].clientY - tsY;
             if (Math.abs(dxT) > Math.abs(dyT)) handleInput(dxT > 0 ? 'ArrowRight' : 'ArrowLeft');
             else handleInput(dyT > 0 ? 'ArrowDown' : 'ArrowUp');
-        }, false);
+        }, {passive: false});
 
         init();
     </script>
